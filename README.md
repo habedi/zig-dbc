@@ -31,11 +31,11 @@ This can be especially useful, for example, during the implementation of complex
 
 ### Features
 
-* **Explicit Contracts**: A simple API to define `preconditions`, `postconditions`, and `invariants`
-* **Zero-Cost**: In `ReleaseFast` mode, all contract checks are removed at compile time
-* **Safety-Focused**: Contracts are active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` modes to catch bugs early
-* **Error Handling**: The `contract` function passes errors from your code to the caller
-* **Error Tolerance**: An optional mode to handle partial state changes in functions that can return errors
+* A simple API to define `preconditions`, `postconditions`, and `invariants`
+* Contracts are active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` modes to catch bugs early
+* In `ReleaseFast` mode, all contract checks are removed at compile time
+* The `contract` function passes errors from your code to the caller
+* An optional mode to handle partial state changes in functions that can return errors
 
 > [!IMPORTANT]
 > Zig-DbC is in early development, so bugs and breaking API changes are expected.

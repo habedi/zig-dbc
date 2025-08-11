@@ -6,7 +6,7 @@
 //!
 //! - **Preconditions**: Assert conditions that must be true when entering a function (at call time)
 //! - **Postconditions**: Assert conditions that must be true when exiting a function (at return time)
-//! - **Class invariants**: Assert structural consistency of objects before and after method calls
+//! - **Invariants**: Assert structural consistency of objects before and after method calls
 //! - **Zero-cost abstractions**: All contract checks are compiled out in `ReleaseFast` mode
 //! - **Error tolerance**: Optional mode to preserve partial state changes when errors occur
 //!
@@ -32,7 +32,7 @@
 //!     balance: u64,
 //!     is_open: bool,
 //!
-//!     // Class invariant - checked before and after each contract
+//!     // Invariant - checked before and after each contract
 //!     fn invariant(self: BankAccount) void {
 //!         dbc.require(if (!self.is_open) self.balance == 0 else true,
 //!                    "Closed accounts must have zero balance");
@@ -184,7 +184,7 @@ inline fn contractWithMode(
 
 /// Execute a method body with strict DbC enforcement.
 ///
-/// Automatically checks class invariants before and after the method execution.
+/// Automatically checks invariants before and after the method execution.
 /// If the method returns an error, invariants are still validated.
 ///
 /// ### Parameters
@@ -195,7 +195,7 @@ inline fn contractWithMode(
 /// ### Returns
 /// The return value of the body's run function
 ///
-/// ### Class Invariants
+/// ### Invariants
 /// If the object type defines an `invariant(self: Self) void` function, it will be
 /// called before method entry and after method exit (including error cases).
 ///
@@ -225,7 +225,7 @@ pub inline fn contract(
 /// Execute a method body with error-tolerant DbC enforcement.
 ///
 /// Similar to `contract()` but allows partial state changes when errors occur.
-/// Class invariants are only checked if the method completes successfully.
+/// Invariants are only checked if the method completes successfully.
 ///
 /// ### Parameters
 /// - `self`: Pointer to the object whose method is being executed
@@ -263,12 +263,12 @@ pub inline fn contractWithErrorTolerance(
 const testing = std.testing;
 
 /// Example implementation demonstrating DbC principles.
-/// This Account struct showcases preconditions, postconditions, and class invariants.
+/// This Account struct showcases preconditions, postconditions, and invariants.
 const Account = struct {
     balance: u32,
     is_active: bool,
 
-    /// Class invariant: inactive accounts must have zero balance.
+    /// Invariant: inactive accounts must have zero balance.
     /// This is automatically checked before and after each contracted method.
     fn invariant(self: Account) void {
         if (!self.is_active) {
@@ -425,7 +425,7 @@ test "invariant failure on exit" {
     try std.testing.expectPanic(TestStruct.testPanic);
 }
 
-test "contract with no class invariant" {
+test "contract with no invariant" {
     if (builtin.mode == .ReleaseFast) return;
 
     const NoInvariant = struct {
