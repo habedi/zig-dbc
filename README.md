@@ -31,11 +31,11 @@ This can be especially useful, for example, during the implementation of complex
 
 ### Features
 
-* **Explicit Contracts**: A simple API to define `preconditions`, `postconditions`, and `invariants`
-* **Zero-Cost**: In `ReleaseFast` mode, all contract checks are removed at compile time
-* **Safety-Focused**: Contracts are active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` modes to catch bugs early
-* **Error Handling**: The `contract` function passes errors from your code to the caller
-* **Error Tolerance**: An optional mode to handle partial state changes in functions that can return errors
+* A simple API to define `preconditions`, `postconditions`, and `invariants`
+* Contracts are active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` modes to catch bugs early
+* In `ReleaseFast` mode, all contract checks are removed at compile time
+* The `contract` function passes errors from your code to the caller
+* An optional mode to handle partial state changes in functions that can return errors
 
 > [!IMPORTANT]
 > Zig-DbC is in early development, so bugs and breaking API changes are expected.
@@ -90,9 +90,9 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-#### Using zig-dbc in an Application
+#### Using Zig-DbC in Your Code
 
-Finally, you can `@import("dbc")` and start using it in your Zig application.
+Finally, you can `@import("dbc")` and start using it in your Zig code.
 
 ```zig
 const dbc = @import("dbc");
@@ -132,15 +132,13 @@ pub fn MyStruct() type {
 
 You can find the API documentation for the latest release of Zig-DbC [here](https://habedi.github.io/zig-dbc/).
 
-Alternatively, you can use the `make docs` command to generate the documentation for the current version of Zig-DbC
-from the source code.
+Alternatively, you can use the `make docs` command to generate the documentation for the current version of Zig-DbC.
 This will generate HTML documentation in the `docs/api` directory, which you can serve locally with `make serve-docs`
-and view in your web browser at [http://localhost:8000](http://localhost:8000).
+and view in a web browser.
 
 ### Examples
 
-Check out the [examples](examples/) directory for examples of how Zig-DbC can be used to build a variety of CLI
-applications.
+Check out the [examples](examples/) directory for example usages of Zig-DbC.
 
 ---
 

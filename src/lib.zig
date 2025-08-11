@@ -7,7 +7,7 @@
 //!
 //! - **Preconditions**: Conditions that must be true when a function is called
 //! - **Postconditions**: Conditions that must be true when a function returns
-//! - **Class Invariants**: Conditions that must hold for object instances all the time
+//! - **Invariants**: Conditions that must hold for object instances all the time
 //!
 //! Zig-DbC is inspired by DbC concepts from languages like Eiffel and Ada,
 //! and aims to provide a simple and idiomatic way to implement these principles in Zig.
