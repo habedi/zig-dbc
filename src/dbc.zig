@@ -4,12 +4,12 @@
 //!
 //! ### Features
 //!
-//! - **Preconditions**: Assert conditions that must be true when entering a function (at call time)
-//! - **Postconditions**: Assert conditions that must be true when exiting a function (at return time)
-//! - **Invariants**: Assert structural consistency of objects before and after method calls
-//! - **Zero-cost abstractions**: All contract checks are compiled out in `ReleaseFast` mode
-//! - **Error tolerance**: Optional mode to preserve partial state changes when errors occur
-//! - **Formatted messages**: Compile-time formatted assertion messages with automatic context capture
+//! - Preconditions: Assert conditions that must be true when entering a function (at call time)
+//! - Postconditions: Assert conditions that must be true when exiting a function (at return time)
+//! - Invariants: Assert structural consistency of objects before and after method calls
+//! - Zero-cost abstractions: All contract checks are compiled out in `ReleaseFast` mode
+//! - Error tolerance: Optional mode to preserve partial state changes when errors occur
+//! - Formatted messages: Compile-time formatted assertion messages with automatic context capture
 //!
 //! ### Usage
 //!
@@ -46,8 +46,8 @@
 //!
 //!     // Invariant - checked before and after each contract
 //!     fn invariant(self: BankAccount) void {
-//!         dbc.require(.{if (!self.is_open) self.balance == 0 else true,
-//!                    "Closed accounts must have zero balance"});
+//!         dbc.require(.{ if (!self.is_open) self.balance == 0 else true,
+//!                         "Closed accounts must have zero balance" });
 //!     }
 //!
 //!     pub fn withdraw(self: *BankAccount, amount: u64) !void {
@@ -55,18 +55,18 @@
 //!         return dbc.contract(self, old_state, struct {
 //!             fn run(ctx: @TypeOf(old_state), account: *BankAccount) !void {
 //!                 // Enhanced preconditions with context
-//!                 dbc.requiref(account.is_open, "Account must be open");
+//!                 dbc.requiref(account.is_open, "Account must be open", .{});
 //!                 dbc.requiref(amount <= account.balance,
-//!                             "Insufficient funds: requested {d}, available {d}",
-//!                             .{amount, account.balance});
+//!                               "Insufficient funds: requested {d}, available {d}",
+//!                               .{amount, account.balance});
 //!
 //!                 // Business logic
 //!                 account.balance -= amount;
 //!
 //!                 // Enhanced postconditions
 //!                 dbc.ensuref(account.balance == ctx.balance - amount,
-//!                           "Balance mismatch: expected {d}, got {d}",
-//!                           .{ctx.balance - amount, account.balance});
+//!                             "Balance mismatch: expected {d}, got {d}",
+//!                             .{ctx.balance - amount, account.balance});
 //!             }
 //!         }.run);
 //!     }
@@ -82,38 +82,18 @@ const builtin = @import("builtin");
 /// 1. With a boolean condition: `require(.{condition, "error message"})`
 /// 2. With a reusable validator: `require(.{validator, value, "error message"})`
 ///
-/// A validator can be a function pointer or a struct with a `run` method that
+/// A validator can be a function pointer or a struct with a public `run` method that
 /// accepts `value` and returns a boolean.
 ///
 /// Only active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` builds.
 ///
-/// ### Panics
 /// Panics with the provided message if the condition is false or the validator returns false.
-///
-/// ### Example
-/// ```zig
-/// // With a boolean condition
-/// fn sqrt(x: f64) f64 {
-///     require(.{x >= 0.0, "Square root requires non-negative input"});
-///     return std.math.sqrt(x);
-/// }
-///
-/// // With a reusable validator
-/// const isPositive = fn(n: i32) bool { return n > 0; };
-///
-/// fn doSomething(val: i32) void {
-///     require(.{isPositive, val, "Value must be positive"});
-/// }
-/// ```
 pub inline fn require(args: anytype) void {
     if (builtin.mode == .ReleaseFast) return;
 
     comptime {
         const info = @typeInfo(@TypeOf(args));
-        if (info != .@"struct") {
-            @compileError("arguments to require must be a tuple, e.g. require(.{condition, msg})");
-        }
-        if (info.@"struct".is_tuple == false) {
+        if (info != .@"struct" or info.@"struct".is_tuple == false) {
             @compileError("arguments to require must be a tuple, e.g. require(.{condition, msg})");
         }
     }
@@ -133,17 +113,17 @@ pub inline fn require(args: anytype) void {
                     if (@hasDecl(ValidatorType, "run")) {
                         break :blk validator.run(value);
                     } else {
-                        @compileError("Validator struct must have a 'run' method");
+                        @compileError("Validator struct must have a public 'run' method");
                     }
                 },
                 .pointer => |ptr_info| {
                     if (@typeInfo(ptr_info.child) == .@"fn") {
                         break :blk validator(value);
                     } else {
-                        @compileError("Validator must be a function or a struct with a 'run' method");
+                        @compileError("Validator must be a function or a struct with a public 'run' method");
                     }
                 },
-                else => @compileError("Validator must be a function or a struct with a 'run' method"),
+                else => @compileError("Validator must be a function or a struct with a public 'run' method"),
             }
         } else {
             @compileError("require expects a tuple with 2 or 3 arguments");
@@ -165,19 +145,6 @@ pub inline fn require(args: anytype) void {
 ///
 /// Provides compile-time formatted messages for better debugging experience.
 /// All formatting is done at compile-time and completely eliminated in ReleaseFast.
-///
-/// ### Parameters
-/// - `condition`: Boolean expression to check
-/// - `fmt`: Compile-time format string
-/// - `args`: Tuple of arguments for formatting
-///
-/// ### Example
-/// ```zig
-/// fn divide(a: f32, b: f32) f32 {
-///     requiref(b != 0.0, "Cannot divide {d} by zero", .{a});
-///     return a / b;
-/// }
-/// ```
 pub inline fn requiref(condition: bool, comptime fmt: []const u8, args: anytype) void {
     if (builtin.mode == .ReleaseFast) return;
 
@@ -189,25 +156,14 @@ pub inline fn requiref(condition: bool, comptime fmt: []const u8, args: anytype)
 
 /// Assert a precondition with contextual information captured in the message.
 ///
-/// Automatically includes the condition expression as text in the panic message.
-/// Useful for debugging when you want to see exactly which condition failed.
-///
-/// ### Parameters
-/// - `condition`: Boolean expression to check
-/// - `context`: Additional context string to include in the message
-///
-/// ### Example
-/// ```zig
-/// fn transfer(from: *Account, to: *Account, amount: u64) void {
-///     requireCtx(from.balance >= amount, "transfer precondition");
-///     // ... transfer logic
-/// }
-/// ```
-pub inline fn requireCtx(condition: bool, context: []const u8) void {
+/// Automatically includes a context string in the panic message.
+/// Pass a comptime string (typically a literal) to avoid allocations.
+pub inline fn requireCtx(condition: bool, comptime context: []const u8) void {
     if (builtin.mode == .ReleaseFast) return;
 
     if (!condition) {
-        @panic("Precondition failed: " ++ context);
+        const msg = std.fmt.comptimePrint("Precondition failed: {s}", .{context});
+        @panic(msg);
     }
 }
 
@@ -217,37 +173,18 @@ pub inline fn requireCtx(condition: bool, context: []const u8) void {
 /// 1. With a boolean condition: `ensure(.{condition, "error message"})`
 /// 2. With a reusable validator: `ensure(.{validator, value, "error message"})`
 ///
-/// A validator can be a function pointer or a struct with a `run` method that
+/// A validator can be a function pointer or a struct with a public `run` method that
 /// accepts `value` and returns a boolean.
 ///
 /// Only active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` builds.
 ///
-/// ### Panics
 /// Panics with the provided message if the condition is false or the validator returns false.
-///
-/// ### Example
-/// ```zig
-/// fn factorial(n: u32) u32 {
-///     require(.{n <= 12, "Input too large for u32 factorial"});
-///
-///     var result: u32 = 1;
-///     for (1..n + 1) |i| {
-///         result *= @intCast(i);
-///     }
-///
-///     ensure(.{result >= n, "Factorial result should be at least input value"});
-///     return result;
-/// }
-/// ```
 pub inline fn ensure(args: anytype) void {
     if (builtin.mode == .ReleaseFast) return;
 
     comptime {
         const info = @typeInfo(@TypeOf(args));
-        if (info != .@"struct") {
-            @compileError("arguments to ensure must be a tuple, e.g. ensure(.{condition, msg})");
-        }
-        if (info.@"struct".is_tuple == false) {
+        if (info != .@"struct" or info.@"struct".is_tuple == false) {
             @compileError("arguments to ensure must be a tuple, e.g. ensure(.{condition, msg})");
         }
     }
@@ -267,17 +204,17 @@ pub inline fn ensure(args: anytype) void {
                     if (@hasDecl(ValidatorType, "run")) {
                         break :blk validator.run(value);
                     } else {
-                        @compileError("Validator struct must have a 'run' method");
+                        @compileError("Validator struct must have a public 'run' method");
                     }
                 },
                 .pointer => |ptr_info| {
                     if (@typeInfo(ptr_info.child) == .@"fn") {
                         break :blk validator(value);
                     } else {
-                        @compileError("Validator must be a function or a struct with a 'run' method");
+                        @compileError("Validator must be a function or a struct with a public 'run' method");
                     }
                 },
-                else => @compileError("Validator must be a function or a struct with a 'run' method"),
+                else => @compileError("Validator must be a function or a struct with a public 'run' method"),
             }
         } else {
             @compileError("ensure expects a tuple with 2 or 3 arguments");
@@ -299,20 +236,6 @@ pub inline fn ensure(args: anytype) void {
 ///
 /// Provides compile-time formatted messages for better debugging experience.
 /// All formatting is done at compile-time and completely eliminated in ReleaseFast.
-///
-/// ### Parameters
-/// - `condition`: Boolean expression to check
-/// - `fmt`: Compile-time format string
-/// - `args`: Tuple of arguments for formatting
-///
-/// ### Example
-/// ```zig
-/// fn multiply(a: i32, b: i32) i32 {
-///     const result = a * b;
-///     ensuref(result / a == b, "Multiplication overflow detected: {d} * {d} = {d}", .{a, b, result});
-///     return result;
-/// }
-/// ```
 pub inline fn ensuref(condition: bool, comptime fmt: []const u8, args: anytype) void {
     if (builtin.mode == .ReleaseFast) return;
 
@@ -324,57 +247,28 @@ pub inline fn ensuref(condition: bool, comptime fmt: []const u8, args: anytype) 
 
 /// Assert a postcondition with contextual information captured in the message.
 ///
-/// Automatically includes the condition expression as text in the panic message.
-/// Useful for debugging when you want to see exactly which condition failed.
-///
-/// ### Parameters
-/// - `condition`: Boolean expression to check
-/// - `context`: Additional context string to include in the message
-///
-/// ### Example
-/// ```zig
-/// fn processArray(arr: []i32) []i32 {
-///     // ... processing logic
-///     ensureCtx(arr.len > 0, "array processing postcondition");
-///     return arr;
-/// }
-/// ```
-pub inline fn ensureCtx(condition: bool, context: []const u8) void {
+/// Automatically includes a context string in the panic message.
+/// Pass a comptime string (typically a literal) to avoid allocations.
+pub inline fn ensureCtx(condition: bool, comptime context: []const u8) void {
     if (builtin.mode == .ReleaseFast) return;
 
     if (!condition) {
-        @panic("Postcondition failed: " ++ context);
+        const msg = std.fmt.comptimePrint("Postcondition failed: {s}", .{context});
+        @panic(msg);
     }
 }
 
 /// Execute a function with design by contract semantics.
 ///
-/// This function provides a structured way to implement contracts with:
+/// This function provides:
 /// - Automatic invariant checking (if the object has an `invariant` method)
 /// - Captured pre-state for postconditions
 /// - Error handling that preserves invariants
 ///
-/// ### Parameters
+/// Parameters:
 /// - `self`: Object instance (must be a pointer type for mutation)
 /// - `old_state`: Captured state before the operation
 /// - `operation`: Function to execute with signature `fn(old_state, self) ReturnType`
-///
-/// ### Returns
-/// The return value of the `operation` function.
-///
-/// ### Example
-/// ```zig
-/// pub fn deposit(self: *BankAccount, amount: u64) !void {
-///     const old_state = .{ .balance = self.balance };
-///     return contract(self, old_state, struct {
-///         fn run(ctx: @TypeOf(old_state), account: *BankAccount) !void {
-///             require(.{amount > 0, "Deposit amount must be positive"});
-///             account.balance += amount;
-///             ensure(.{account.balance == ctx.balance + amount, "Balance should increase by deposit amount"});
-///         }
-///     }.run);
-/// }
-/// ```
 pub inline fn contract(self: anytype, old_state: anytype, operation: anytype) @typeInfo(@TypeOf(operation)).@"fn".return_type.? {
     if (builtin.mode == .ReleaseFast) {
         return operation(old_state, self);
@@ -398,34 +292,13 @@ pub inline fn contract(self: anytype, old_state: anytype, operation: anytype) @t
 
 /// Execute a function with design by contract semantics and error tolerance.
 ///
-/// Similar to `contract` but provides more sophisticated error handling.
-/// If an error occurs during the operation, the invariant is still checked
-/// to ensure the object remains in a valid state.
+/// Similar to `contract` but if an error occurs during the operation, the invariant
+/// is still checked to ensure the object remains in a valid state.
 ///
-/// ### Parameters
+/// Parameters:
 /// - `self`: Object instance (must be a pointer type for mutation)
 /// - `old_state`: Captured state before the operation
 /// - `operation`: Function to execute with signature `fn(old_state, self) ReturnType`
-///
-/// ### Returns
-/// The return value of the `operation` function, or propagates any error.
-///
-/// ### Example
-/// ```zig
-/// pub fn complexOperation(self: *DataStructure, data: []const u8) !void {
-///     const old_state = .{ .size = self.size, .checksum = self.checksum };
-///     return contractWithErrorTolerance(self, old_state, struct {
-///         fn run(ctx: @TypeOf(old_state), ds: *DataStructure) !void {
-///             require(.{data.len > 0, "Data cannot be empty"});
-///
-///             // Complex operation that might fail
-///             try ds.processData(data);
-///
-///             ensure(.{ds.size >= ctx.size, "Size should not decrease"});
-///         }
-///     }.run);
-/// }
-/// ```
 pub inline fn contractWithErrorTolerance(self: anytype, old_state: anytype, operation: anytype) @typeInfo(@TypeOf(operation)).@"fn".return_type.? {
     if (builtin.mode == .ReleaseFast) {
         return operation(old_state, self);
@@ -478,7 +351,7 @@ const Account = struct {
         return contract(self, old, struct {
             fn run(ctx: @TypeOf(old), s: *Account) void {
                 // Enhanced preconditions with context
-                requiref(s.is_active, "Cannot deposit to inactive account");
+                requiref(s.is_active, "Cannot deposit to inactive account", .{});
                 requiref(amount > 0, "Deposit amount must be positive, got {d}", .{amount});
 
                 // Business logic
@@ -497,7 +370,7 @@ const Account = struct {
         return contract(self, old, struct {
             fn run(ctx: @TypeOf(old), s: *Account) !void {
                 // Enhanced preconditions with detailed context
-                requiref(s.is_active, "Cannot withdraw from inactive account");
+                requiref(s.is_active, "Cannot withdraw from inactive account", .{});
                 requiref(amount <= s.balance, "Insufficient funds: requested {d}, available {d}", .{ amount, s.balance });
 
                 // Business logic
@@ -513,7 +386,7 @@ const Account = struct {
     /// Demonstrates context capture for clear error messages.
     pub fn close(self: *Account) void {
         return contract(self, null, struct {
-            fn run(_: ?*anyopaque, s: *Account) void {
+            fn run(_: @TypeOf(null), s: *Account) void {
                 requireCtx(s.balance == 0, "s.balance == 0");
                 s.is_active = false;
                 ensureCtx(!s.is_active, "!s.is_active");
@@ -604,8 +477,8 @@ test "formatted messages are eliminated in ReleaseFast" {
     if (builtin.mode != .ReleaseFast) return;
 
     // These would normally cause panics but should be completely compiled out
-    requiref(false, "This should not panic in ReleaseFast mode");
-    ensuref(false, "This should also not panic in ReleaseFast mode");
+    requiref(false, "This should not panic in ReleaseFast mode", .{});
+    ensuref(false, "This should also not panic in ReleaseFast mode", .{});
     requireCtx(false, "false");
     ensureCtx(false, "false");
 }
@@ -637,14 +510,12 @@ test "reusable validators with enhanced error messages" {
 test "requiref and ensuref with simple boolean conditions" {
     if (builtin.mode == .ReleaseFast) return;
 
-    // These work because the values are known at compile time
     const x: f64 = 3.14159;
     const y: i32 = 42;
 
     require(.{ x > 0.0, "x must be positive" });
     require(.{ y >= 0, "y must be non-negative" });
 
-    // Simple formatted messages
     const result = x * 2;
     ensure(.{ result > x, "Result should be greater than input" });
 }
@@ -676,7 +547,7 @@ test "reusable validators with all API variants" {
     const range_validator = IsInRange{ .min = 10, .max = 50 };
     const test_value: i32 = 25;
 
-    // Original API
+    // Simple API
     require(.{ range_validator, test_value, "Value must be in range [10, 50]" });
 
     // Context API
