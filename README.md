@@ -20,22 +20,24 @@ A Design by Contract Library for Zig
 ---
 
 Zig-DbC is a small library that provides a collection of functions to use
-[design by contract](https://en.wikipedia.org/wiki/Design_by_contract) (DbC) principles in software written in Zig
-programming language.
-It provides a simple and idiomatic API for defining *preconditions*, *postconditions*, and *invariants* that can be
+[design by contract](https://en.wikipedia.org/wiki/Design_by_contract) (DbC) principles in Zig programs.
+It provides a simple and idiomatic API for defining preconditions, postconditions, and invariants that can be
 checked at runtime.
 
 A common use case for DbC (and by extension Zig-DbC) is adding checks that guarantee the code behaves as intended.
-This can be especially useful, for example, during the implementation of complex data structures and algorithms
-(like balanced trees and graphs) where correctness depends on specific conditions being met.
+This can be especially useful during the implementation of complex data structures and algorithms (like balanced trees
+and graphs) where correctness depends on specific conditions being met.
 
 ### Features
 
-* A simple API to define `preconditions`, `postconditions`, and `invariants`
-* Contracts are active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` modes to catch bugs early
-* In `ReleaseFast` mode, all contract checks are removed at compile time
-* The `contract` function passes errors from your code to the caller
-* An optional mode to handle partial state changes in functions that can return errors
+- A simple API to define preconditions, postconditions, and invariants
+    - `require` and `ensure` functions can be used to check preconditions and postconditions
+    - `requiref` and `ensuref` functions can be used to check preconditions and postconditions with formatted error
+      messages
+    - `requireCtx` and `ensureCtx` functions can be used to check preconditions and postconditions with a context value
+    - `contract` and `contractWithErrorTolerance` functions can be used to check invariants
+- Checks are active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` build modes to catch bugs
+- In `ReleaseFast` mode, all checks are removed at compile time to remove overhead
 
 > [!IMPORTANT]
 > Zig-DbC is in early development, so bugs and breaking API changes are expected.
@@ -55,7 +57,7 @@ Run the following command in the root directory of your project to download Zig-
 zig fetch --save=dbc "https://github.com/habedi/zig-dbc/archive/<branch_or_tag>.tar.gz"
 ```
 
-Replace `<branch_or_tag>` with the desired branch or tag, like `main` (for the development version) or `v0.1.0`
+Replace `<branch_or_tag>` with the desired branch or tag, like `main` (for the development version) or `v0.2.0`
 (for the latest release).
 This command will download zig-dbc and add it to Zig's global cache and update your project's `build.zig.zon` file.
 
@@ -69,7 +71,6 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-
     const exe = b.addExecutable(.{
         .name = "your-zig-program",
         .root_source_file = b.path("src/main.zig"),
@@ -83,7 +84,7 @@ pub fn build(b: *std.Build) void {
     // 2. Get Zig-DbC's top-level module
     const zig_dbc_module = zig_dbc_dep.module("dbc");
 
-    // 3. Add the module to your executable so you can @import("zig-dbc")
+    // 3. Add the module to your executable so you can @import("dbc")
     exe.root_module.addImport("dbc", zig_dbc_module);
 
     b.installArtifact(exe);
@@ -95,32 +96,33 @@ pub fn build(b: *std.Build) void {
 Finally, you can `@import("dbc")` and start using it in your Zig code.
 
 ```zig
+const std = @import("std");
 const dbc = @import("dbc");
 
 pub fn MyStruct() type {
     return struct {
         const Self = @This();
-        field: i32,
-        is_ready: bool,
+        field: i32, is_ready: bool,
 
+        // The invariant guarantees that the object's state is always valid.
+        // It's checked automatically by the `contract` function.
         fn invariant(self: Self) void {
-            dbc.require(.{self.field > 0, "Field must always be positive"});
+            dbc.require(.{ self.field > 0, "Field must always be positive" });
         }
 
         pub fn doSomething(self: *Self) !void {
             const old = .{ .field = self.field };
-            return dbc.contract(self, old, struct {
-                fn run(ctx: @TypeOf(old), s: *Self) !void {
+            return dbc.contract(self, old,
+                struct {fn run(ctx: @TypeOf(old), s: *Self) !void {
                     // Precondition
-                    dbc.require(.{s.is_ready, "Struct not ready"});
+                    dbc.require(.{ s.is_ready, "Struct not ready" });
 
                     // ... method logic ...
                     s.field += 1;
 
                     // Postcondition
-                    dbc.ensure(.{s.field > ctx.field, "Field must increase"});
-                }
-            }.run);
+                    dbc.ensure(.{ s.field > ctx.field, "Field must increase" });
+                }}.run);
         }
     };
 }
@@ -135,6 +137,13 @@ You can find the API documentation for the latest release of Zig-DbC [here](http
 Alternatively, you can use the `make docs` command to generate the documentation for the current version of Zig-DbC.
 This will generate HTML documentation in the `docs/api` directory, which you can serve locally with `make serve-docs`
 and view in a web browser.
+
+#### Validators
+
+Zig-DbC supports reusable validators in `require` and `ensure` functions by passing as argument either:
+
+- a function with signature `fn(T) bool`, or
+- a struct value with a `run` function with this signature: `pub fn run(self, T) bool`.
 
 ### Examples
 

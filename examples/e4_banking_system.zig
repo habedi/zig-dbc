@@ -10,7 +10,7 @@ const BankAccount = struct {
     transaction_count: u32,
 
     fn invariant(self: Self) void {
-        // Original API for basic conditions
+        // Simple API for basic conditions
         dbc.require(.{ self.account_number > 0, "Account number must be positive" });
 
         // Context capture for simple expressions
@@ -100,7 +100,7 @@ const BankAccount = struct {
 
 pub fn main() !void {
     const builtin = @import("builtin");
-    std.debug.print("Enhanced DbC API Demo (contracts active: {})\n", .{builtin.mode != .ReleaseFast});
+    std.debug.print("Banking Systsem Example (contracts active: {})\n", .{builtin.mode != .ReleaseFast});
 
     var account1 = BankAccount.init(12345);
     var account2 = BankAccount.init(67890);

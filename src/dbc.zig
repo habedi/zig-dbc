@@ -94,7 +94,7 @@ pub inline fn require(args: anytype) void {
     comptime {
         const info = @typeInfo(@TypeOf(args));
         if (info != .@"struct" or info.@"struct".is_tuple == false) {
-            @compileError("arguments to require must be a tuple, e.g. require(.{condition, msg})");
+            @compileError("arguments to require must be a tuple, like require(.{condition, msg})");
         }
     }
 
@@ -185,7 +185,7 @@ pub inline fn ensure(args: anytype) void {
     comptime {
         const info = @typeInfo(@TypeOf(args));
         if (info != .@"struct" or info.@"struct".is_tuple == false) {
-            @compileError("arguments to ensure must be a tuple, e.g. ensure(.{condition, msg})");
+            @compileError("arguments to ensure must be a tuple, like ensure(.{condition, msg})");
         }
     }
 
@@ -293,7 +293,7 @@ pub inline fn contract(self: anytype, old_state: anytype, operation: anytype) @t
 /// Execute a function with design by contract semantics and error tolerance.
 ///
 /// Similar to `contract` but if an error occurs during the operation, the invariant
-/// is still checked to ensure the object remains in a valid state.
+/// is still checked to guarantee the object remains in a valid state.
 ///
 /// Parameters:
 /// - `self`: Object instance (must be a pointer type for mutation)

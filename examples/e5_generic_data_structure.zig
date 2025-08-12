@@ -113,7 +113,7 @@ pub fn validateNumber(num: i32) i32 {
 
 pub fn main() !void {
     const builtin = @import("builtin");
-    std.debug.print("Generic Data Structure Demo (contracts active: {})\n", .{builtin.mode != .ReleaseFast});
+    std.debug.print("Generic Data Structure Example (contracts active: {})\n", .{builtin.mode != .ReleaseFast});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
