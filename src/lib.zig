@@ -1,8 +1,7 @@
 //! Zig-DbC -- A Design by Contract Library for Zig
 //!
 //! This library provides a set of functions to use design by contract (DbC) principles in
-//! Zig programs.
-//! DbC is a software engineering methodology that allows developers to specify
+//! Zig programs. DbC is a software engineering methodology that allows developers to specify
 //! and verify program correctness through:
 //!
 //! - **Preconditions**: Conditions that must be true when a function is called
@@ -15,6 +14,10 @@
 const dbc = @import("dbc.zig");
 
 pub const require = dbc.require;
+pub const requiref = dbc.requiref;
+pub const requireCtx = dbc.requireCtx;
 pub const ensure = dbc.ensure;
+pub const ensuref = dbc.ensuref;
+pub const ensureCtx = dbc.ensureCtx;
 pub const contract = dbc.contract;
 pub const contractWithErrorTolerance = dbc.contractWithErrorTolerance;
