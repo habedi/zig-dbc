@@ -104,21 +104,21 @@ pub fn MyStruct() type {
         is_ready: bool,
 
         fn invariant(self: Self) void {
-            dbc.require(self.field > 0, "Field must always be positive");
+            dbc.require(.{self.field > 0, "Field must always be positive"});
         }
 
         pub fn doSomething(self: *Self) !void {
             const old = .{ .field = self.field };
-            return dbc.contract(self, @TypeOf(old), old, struct {
+            return dbc.contract(self, old, struct {
                 fn run(ctx: @TypeOf(old), s: *Self) !void {
                     // Precondition
-                    dbc.require(s.is_ready, "Struct not ready");
+                    dbc.require(.{s.is_ready, "Struct not ready"});
 
                     // ... method logic ...
                     s.field += 1;
 
                     // Postcondition
-                    dbc.ensure(s.field > ctx.field, "Field must increase");
+                    dbc.ensure(.{s.field > ctx.field, "Field must increase"});
                 }
             }.run);
         }

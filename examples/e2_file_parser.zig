@@ -14,7 +14,7 @@ const FileParser = struct {
     // a file path must exist. This helps maintain data integrity.
     fn invariant(self: Self) void {
         if (self.is_parsed) {
-            dbc.require(self.file_path != null, "Parsed file must have a path");
+            dbc.require(.{ self.file_path != null, "Parsed file must have a path" });
         }
     }
 
@@ -53,7 +53,7 @@ const FileParser = struct {
             fn run(ctx: @TypeOf(old), s: *Self) !void {
                 // A precondition to ensure the parser is not already in a parsed state.
                 // This prevents re-parsing without calling `reset`.
-                dbc.require(!s.is_parsed, "Parser is already in a parsed state. Call reset first.");
+                dbc.require(.{ !s.is_parsed, "Parser is already in a parsed state. Call reset first." });
 
                 const file = try std.fs.cwd().openFile(ctx.path, .{});
                 defer file.close();
@@ -71,7 +71,7 @@ const FileParser = struct {
                 s.is_parsed = true;
 
                 // A postcondition to verify that new lines were read successfully.
-                dbc.ensure(s.lines.items.len > ctx.old_lines_count, "Parsing failed to read any new lines.");
+                dbc.ensure(.{ s.lines.items.len > ctx.old_lines_count, "Parsing failed to read any new lines." });
             }
         }.run);
     }

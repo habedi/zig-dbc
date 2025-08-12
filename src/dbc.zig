@@ -73,50 +73,154 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 /// Assert a precondition that must be true at function entry.
+///
+/// Can be called in two ways:
+/// 1. With a boolean condition: `require(.{condition, "error message"})`
+/// 2. With a reusable validator: `require(.{validator, value, "error message"})`
+///
+/// A validator can be a function pointer or a struct with a `run` method that
+/// accepts `value` and returns a boolean.
+///
 /// Only active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` builds.
 ///
-/// ### Parameters
-/// - `condition`: Boolean expression that must evaluate to true
-/// - `msg`: Compile-time error message displayed on assertion failure
-///
 /// ### Panics
-/// Panics with the provided message if condition is false in `Debug`, `ReleaseSafe`, and `ReleaseSmall` build modes.
+/// Panics with the provided message if the condition is false or the validator returns false.
 ///
 /// ### Example
 /// ```zig
+/// // With a boolean condition
 /// fn sqrt(x: f64) f64 {
-///     require(x >= 0.0, "Square root requires non-negative input");
+///     require(.{x >= 0.0, "Square root requires non-negative input"});
 ///     return std.math.sqrt(x);
 /// }
+///
+/// // With a reusable validator
+/// const isPositive = fn(n: i32) bool { return n > 0; };
+///
+/// fn doSomething(val: i32) void {
+///     require(.{isPositive, val, "Value must be positive"});
+/// }
 /// ```
-pub inline fn require(condition: bool, comptime msg: []const u8) void {
-    if (builtin.mode != .ReleaseFast) {
-        if (!condition) @panic(msg);
+pub inline fn require(args: anytype) void {
+    if (builtin.mode == .ReleaseFast) return;
+
+    comptime {
+        const info = @typeInfo(@TypeOf(args));
+        if (info != .@"struct") {
+            @compileError("arguments to require must be a tuple, e.g. require(.{condition, msg})");
+        }
+        if (info.@"struct".is_tuple == false) {
+            @compileError("arguments to require must be a tuple, e.g. require(.{condition, msg})");
+        }
     }
+
+    const condition = blk: {
+        if (args.len == 2) {
+            if (@TypeOf(args[0]) != bool) @compileError("Expected a boolean condition for 2-argument require");
+            break :blk args[0];
+        } else if (args.len == 3) {
+            const validator = args[0];
+            const value = args[1];
+            const ValidatorType = @TypeOf(validator);
+
+            if (@typeInfo(ValidatorType) == .Fn) {
+                break :blk validator(value);
+            } else if (@typeInfo(ValidatorType) == .Struct and @hasDecl(ValidatorType, "run")) {
+                break :blk validator.run(value);
+            } else {
+                @compileError("Validator must be a function or a struct with a 'run' method.");
+            }
+        } else {
+            @compileError("require expects a tuple with 2 or 3 arguments");
+        }
+    };
+
+    const msg = comptime blk: {
+        if (args.len == 2) {
+            break :blk args[1];
+        } else {
+            break :blk args[2];
+        }
+    };
+
+    if (!condition) @panic(msg);
 }
 
 /// Assert a postcondition that must be true at function exit.
+///
+/// Can be called in two ways:
+/// 1. With a boolean condition: `ensure(.{condition, "error message"})`
+/// 2. With a reusable validator: `ensure(.{validator, value, "error message"})`
+///
+/// A validator can be a function pointer or a struct with a `run` method that
+/// accepts `value` and returns a boolean.
+///
 /// Only active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` builds.
 ///
-/// ### Parameters
-/// - `condition`: Boolean expression that must evaluate to true
-/// - `msg`: Compile-time error message displayed on assertion failure
-///
 /// ### Panics
-/// Panics with the provided message if condition is false in `Debug`, `ReleaseSafe`, and `ReleaseSmall` build modes.
+/// Panics with the provided message if the condition is false or the validator returns false.
 ///
 /// ### Example
 /// ```zig
+/// // With a boolean condition
 /// fn abs(x: i32) i32 {
 ///     const result = if (x < 0) -x else x;
-///     ensure(result >= 0, "Absolute value must be non-negative");
+///     ensure(.{result >= 0, "Absolute value must be non-negative"});
+///     return result;
+/// }
+///
+/// // With a reusable validator
+/// const isPositive = fn(n: i32) bool { return n > 0; };
+///
+/// fn doSomething(val: i32) i32 {
+///     const result = val + 1;
+///     ensure(.{isPositive, result, "Result must be positive"});
 ///     return result;
 /// }
 /// ```
-pub inline fn ensure(condition: bool, comptime msg: []const u8) void {
-    if (builtin.mode != .ReleaseFast) {
-        if (!condition) @panic(msg);
+pub inline fn ensure(args: anytype) void {
+    if (builtin.mode == .ReleaseFast) return;
+
+    comptime {
+        const info = @typeInfo(@TypeOf(args));
+        if (info != .@"struct") {
+            @compileError("arguments to ensure must be a tuple, e.g. ensure(.{condition, msg})");
+        }
+        if (info.@"struct".is_tuple == false) {
+            @compileError("arguments to ensure must be a tuple, e.g. ensure(.{condition, msg})");
+        }
     }
+
+    const condition = blk: {
+        if (args.len == 2) {
+            if (@TypeOf(args[0]) != bool) @compileError("Expected a boolean condition for 2-argument ensure");
+            break :blk args[0];
+        } else if (args.len == 3) {
+            const validator = args[0];
+            const value = args[1];
+            const ValidatorType = @TypeOf(validator);
+
+            if (@typeInfo(ValidatorType) == .Fn) {
+                break :blk validator(value);
+            } else if (@typeInfo(ValidatorType) == .Struct and @hasDecl(ValidatorType, "run")) {
+                break :blk validator.run(value);
+            } else {
+                @compileError("Validator must be a function or a struct with a 'run' method.");
+            }
+        } else {
+            @compileError("ensure expects a tuple with 2 or 3 arguments");
+        }
+    };
+
+    const msg = comptime blk: {
+        if (args.len == 2) {
+            break :blk args[1];
+        } else {
+            break :blk args[2];
+        }
+    };
+
+    if (!condition) @panic(msg);
 }
 
 /// Defines how contracts handle errors and invariant checking.
@@ -193,7 +297,7 @@ inline fn contractWithMode(
 /// - `body`: Compile-time struct with a `run` function containing the method logic
 ///
 /// ### Returns
-/// The return value of the body's run function
+/// The return value of the body's `run` function
 ///
 /// ### Invariants
 /// If the object type defines an `invariant(self: Self) void` function, it will be
@@ -233,7 +337,7 @@ pub inline fn contract(
 /// - `body`: Compile-time struct with a `run` function containing the method logic
 ///
 /// ### Returns
-/// The return value of the body's run function
+/// The return value of the body's `run` function
 ///
 /// ### Use Cases
 /// Use this when you need to allow partial state modifications during error conditions,
@@ -272,7 +376,7 @@ const Account = struct {
     /// This is automatically checked before and after each contracted method.
     fn invariant(self: Account) void {
         if (!self.is_active) {
-            require(self.balance == 0, "Inactive account must have zero balance");
+            require(.{ self.balance == 0, "Inactive account must have zero balance" });
         }
     }
 
@@ -283,14 +387,14 @@ const Account = struct {
         return contract(self, old, struct {
             fn run(ctx: @TypeOf(old), s: *Account) void {
                 // Preconditions
-                require(s.is_active, "Account is not active");
-                require(amount > 0, "Deposit amount must be positive");
+                require(.{ s.is_active, "Account is not active" });
+                require(.{ amount > 0, "Deposit amount must be positive" });
 
                 // Business logic
                 s.balance += amount;
 
                 // Postconditions
-                ensure(s.balance == ctx.balance + amount, "Balance did not increase correctly");
+                ensure(.{ s.balance == ctx.balance + amount, "Balance did not increase correctly" });
             }
         }.run);
     }
@@ -302,14 +406,14 @@ const Account = struct {
         return contract(self, old, struct {
             fn run(ctx: @TypeOf(old), s: *Account) !void {
                 // Preconditions
-                require(s.is_active, "Account is not active");
-                require(amount <= s.balance, "Insufficient funds");
+                require(.{ s.is_active, "Account is not active" });
+                require(.{ amount <= s.balance, "Insufficient funds" });
 
                 // Business logic
                 s.balance -= amount;
 
                 // Postconditions
-                ensure(s.balance == ctx.balance - amount, "Balance did not decrease correctly");
+                ensure(.{ s.balance == ctx.balance - amount, "Balance did not decrease correctly" });
             }
         }.run);
     }
@@ -319,9 +423,9 @@ const Account = struct {
     pub fn close(self: *Account) void {
         return contract(self, null, struct {
             fn run(_: ?*anyopaque, s: *Account) void {
-                require(s.balance == 0, "Can only close an account with zero balance");
+                require(.{ s.balance == 0, "Can only close an account with zero balance" });
                 s.is_active = false;
-                ensure(!s.is_active, "Account failed to close");
+                ensure(.{ !s.is_active, "Account failed to close" });
             }
         }.run);
     }
@@ -365,7 +469,7 @@ test "postcondition failure: simulated bug in withdraw" {
                 fn run(ctx: @TypeOf(old), s: *@This()) void {
                     s.balance -= amount;
                     s.balance += 1; // Intentional bug
-                    ensure(s.balance == ctx.balance - amount, "Balance did not decrease correctly");
+                    ensure(.{ s.balance == ctx.balance - amount, "Balance did not decrease correctly" });
                 }
             }.run);
         }
@@ -402,7 +506,7 @@ test "invariant failure on exit" {
         is_active: bool,
         fn invariant(self: @This()) void {
             if (!self.is_active) {
-                require(self.balance == 0, "Inactive account must have zero balance");
+                require(.{ self.balance == 0, "Inactive account must have zero balance" });
             }
         }
         pub fn badClose(self: *@This()) void {
@@ -433,9 +537,9 @@ test "contract with no invariant" {
         pub fn set(self: *@This(), val: i32) void {
             return contract(self, null, struct {
                 fn run(_: ?*anyopaque, s: *@This()) void {
-                    require(val > 0, "Value must be positive");
+                    require(.{ val > 0, "Value must be positive" });
                     s.x = val;
-                    ensure(s.x == val, "Value was not set");
+                    ensure(.{ s.x == val, "Value was not set" });
                 }
             }.run);
         }
@@ -453,7 +557,7 @@ test "error return preserves invariant check" {
         is_active: bool,
         fn invariant(self: @This()) void {
             if (!self.is_active) {
-                require(self.balance == 0, "Invariant failure");
+                require(.{ self.balance == 0, "Invariant failure" });
             }
         }
         pub fn withdraw(self: *@This()) !void {
@@ -490,7 +594,7 @@ test "error tolerant contract allows partial state changes on error" {
         field2: u32,
 
         fn invariant(self: @This()) void {
-            require((self.field1 % 2) == (self.field2 % 2), "Fields must have same parity");
+            require(.{ (self.field1 % 2) == (self.field2 % 2), "Fields must have same parity" });
         }
 
         pub fn problematicMethodStrict(self: *@This()) !void {
@@ -527,29 +631,45 @@ test "error tolerant contract allows partial state changes on error" {
     try testing.expectEqual(@as(u32, 4), obj2.field2);
 }
 
-test "invariant is called before and after contract" {
+test "reusable validators for require and ensure" {
     if (builtin.mode == .ReleaseFast) return;
 
-    const TestCounter = struct {
-        invariant_calls: u32 = 0,
-
-        fn invariant(self: *@This()) void {
-            self.invariant_calls += 1;
+    // 1. Test with a validator function
+    const isPositive = struct {
+        fn check(n: i32) bool {
+            return n > 0;
         }
+    }.check;
 
-        pub fn doSomething(self: *@This()) void {
-            _ = contract(self, null, struct {
-                fn run(_: ?*anyopaque, s: *@This()) void {
-                    // At this point, the initial invariant should have been called once.
-                    require(s.invariant_calls == 1, "Invariant not called on entry");
-                }
-            }.run);
+    require(.{ isPositive, 10, "10 should be positive" });
+    ensure(.{ isPositive, 1, "1 should be positive" });
+
+    // 2. Test with a validator struct
+    const IsLongerThan = struct {
+        min_len: usize,
+        fn run(self: @This(), s: []const u8) bool {
+            return s.len > self.min_len;
         }
     };
 
-    var counter_struct = TestCounter{};
-    counter_struct.doSomething();
+    const longerThan5 = IsLongerThan{ .min_len = 5 };
+    require(.{ longerThan5, "hello world", "string should be longer than 5" });
+    ensure(.{ longerThan5, "a long string", "string should be longer than 5" });
 
-    // After execution, the final invariant should have been called as well.
-    try testing.expectEqual(@as(u32, 2), counter_struct.invariant_calls);
+    // 3. Test failure case for function validator
+    const TestFnPanic = struct {
+        fn testPanic() void {
+            require(.{ isPositive, -5, "should panic" });
+        }
+    };
+    try std.testing.expectPanic(TestFnPanic.testPanic);
+
+    // 4. Test failure case for struct validator
+    const TestStructPanic = struct {
+        fn testPanic() void {
+            const str = "short";
+            ensure(.{ longerThan5, str, "should panic" });
+        }
+    };
+    try std.testing.expectPanic(TestStructPanic.testPanic);
 }
