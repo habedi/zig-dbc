@@ -526,3 +526,30 @@ test "error tolerant contract allows partial state changes on error" {
     try testing.expectEqual(@as(u32, 3), obj2.field1);
     try testing.expectEqual(@as(u32, 4), obj2.field2);
 }
+
+test "invariant is called before and after contract" {
+    if (builtin.mode == .ReleaseFast) return;
+
+    const TestCounter = struct {
+        invariant_calls: u32 = 0,
+
+        fn invariant(self: *@This()) void {
+            self.invariant_calls += 1;
+        }
+
+        pub fn doSomething(self: *@This()) void {
+            _ = contract(self, null, struct {
+                fn run(_: ?*anyopaque, s: *@This()) void {
+                    // At this point, the initial invariant should have been called once.
+                    require(s.invariant_calls == 1, "Invariant not called on entry");
+                }
+            }.run);
+        }
+    };
+
+    var counter_struct = TestCounter{};
+    counter_struct.doSomething();
+
+    // After execution, the final invariant should have been called as well.
+    try testing.expectEqual(@as(u32, 2), counter_struct.invariant_calls);
+}
