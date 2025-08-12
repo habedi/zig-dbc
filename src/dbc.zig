@@ -127,12 +127,23 @@ pub inline fn require(args: anytype) void {
             const value = args[1];
             const ValidatorType = @TypeOf(validator);
 
-            if (@typeInfo(ValidatorType) == .Fn) {
-                break :blk validator(value);
-            } else if (@typeInfo(ValidatorType) == .Struct and @hasDecl(ValidatorType, "run")) {
-                break :blk validator.run(value);
-            } else {
-                @compileError("Validator must be a function or a struct with a 'run' method.");
+            switch (@typeInfo(ValidatorType)) {
+                .@"fn" => break :blk validator(value),
+                .@"struct" => {
+                    if (@hasDecl(ValidatorType, "run")) {
+                        break :blk validator.run(value);
+                    } else {
+                        @compileError("Validator struct must have a 'run' method");
+                    }
+                },
+                .pointer => |ptr_info| {
+                    if (@typeInfo(ptr_info.child) == .@"fn") {
+                        break :blk validator(value);
+                    } else {
+                        @compileError("Validator must be a function or a struct with a 'run' method");
+                    }
+                },
+                else => @compileError("Validator must be a function or a struct with a 'run' method"),
             }
         } else {
             @compileError("require expects a tuple with 2 or 3 arguments");
@@ -171,32 +182,32 @@ pub inline fn requiref(condition: bool, comptime fmt: []const u8, args: anytype)
     if (builtin.mode == .ReleaseFast) return;
 
     if (!condition) {
-        const msg = std.fmt.comptimePrint(fmt, args);
+        const msg = comptime std.fmt.comptimePrint(fmt, args);
         @panic(msg);
     }
 }
 
-/// Assert a precondition with automatic context capture.
+/// Assert a precondition with contextual information captured in the message.
 ///
-/// Automatically captures the expression text for better error messages.
-/// Useful when you want detailed failure context without manual formatting.
+/// Automatically includes the condition expression as text in the panic message.
+/// Useful for debugging when you want to see exactly which condition failed.
 ///
 /// ### Parameters
 /// - `condition`: Boolean expression to check
-/// - `expr_str`: String representation of the condition expression
+/// - `context`: Additional context string to include in the message
 ///
 /// ### Example
 /// ```zig
-/// fn withdraw(account: *Account, amount: u64) void {
-///     requireCtx(amount <= account.balance, "amount <= account.balance");
+/// fn transfer(from: *Account, to: *Account, amount: u64) void {
+///     requireCtx(from.balance >= amount, "transfer precondition");
+///     // ... transfer logic
 /// }
 /// ```
-pub inline fn requireCtx(condition: bool, comptime expr_str: []const u8) void {
+pub inline fn requireCtx(condition: bool, context: []const u8) void {
     if (builtin.mode == .ReleaseFast) return;
 
     if (!condition) {
-        const msg = std.fmt.comptimePrint("Precondition failed: {s}", .{expr_str});
-        @panic(msg);
+        @panic("Precondition failed: " ++ context);
     }
 }
 
@@ -216,19 +227,15 @@ pub inline fn requireCtx(condition: bool, comptime expr_str: []const u8) void {
 ///
 /// ### Example
 /// ```zig
-/// // With a boolean condition
-/// fn abs(x: i32) i32 {
-///     const result = if (x < 0) -x else x;
-///     ensure(.{result >= 0, "Absolute value must be non-negative"});
-///     return result;
-/// }
+/// fn factorial(n: u32) u32 {
+///     require(.{n <= 12, "Input too large for u32 factorial"});
 ///
-/// // With a reusable validator
-/// const isPositive = fn(n: i32) bool { return n > 0; };
+///     var result: u32 = 1;
+///     for (1..n + 1) |i| {
+///         result *= @intCast(i);
+///     }
 ///
-/// fn doSomething(val: i32) i32 {
-///     const result = val + 1;
-///     ensure(.{isPositive, result, "Result must be positive"});
+///     ensure(.{result >= n, "Factorial result should be at least input value"});
 ///     return result;
 /// }
 /// ```
@@ -254,12 +261,23 @@ pub inline fn ensure(args: anytype) void {
             const value = args[1];
             const ValidatorType = @TypeOf(validator);
 
-            if (@typeInfo(ValidatorType) == .Fn) {
-                break :blk validator(value);
-            } else if (@typeInfo(ValidatorType) == .Struct and @hasDecl(ValidatorType, "run")) {
-                break :blk validator.run(value);
-            } else {
-                @compileError("Validator must be a function or a struct with a 'run' method.");
+            switch (@typeInfo(ValidatorType)) {
+                .@"fn" => break :blk validator(value),
+                .@"struct" => {
+                    if (@hasDecl(ValidatorType, "run")) {
+                        break :blk validator.run(value);
+                    } else {
+                        @compileError("Validator struct must have a 'run' method");
+                    }
+                },
+                .pointer => |ptr_info| {
+                    if (@typeInfo(ptr_info.child) == .@"fn") {
+                        break :blk validator(value);
+                    } else {
+                        @compileError("Validator must be a function or a struct with a 'run' method");
+                    }
+                },
+                else => @compileError("Validator must be a function or a struct with a 'run' method"),
             }
         } else {
             @compileError("ensure expects a tuple with 2 or 3 arguments");
@@ -291,7 +309,7 @@ pub inline fn ensure(args: anytype) void {
 /// ```zig
 /// fn multiply(a: i32, b: i32) i32 {
 ///     const result = a * b;
-///     ensuref(result / a == b, "Multiplication overflow: {d} * {d} = {d}", .{a, b, result});
+///     ensuref(result / a == b, "Multiplication overflow detected: {d} * {d} = {d}", .{a, b, result});
 ///     return result;
 /// }
 /// ```
@@ -299,180 +317,144 @@ pub inline fn ensuref(condition: bool, comptime fmt: []const u8, args: anytype) 
     if (builtin.mode == .ReleaseFast) return;
 
     if (!condition) {
-        const msg = std.fmt.comptimePrint(fmt, args);
+        const msg = comptime std.fmt.comptimePrint(fmt, args);
         @panic(msg);
     }
 }
 
-/// Assert a postcondition with automatic context capture.
+/// Assert a postcondition with contextual information captured in the message.
 ///
-/// Automatically captures the expression text for better error messages.
-/// Useful when you want detailed failure context without manual formatting.
+/// Automatically includes the condition expression as text in the panic message.
+/// Useful for debugging when you want to see exactly which condition failed.
 ///
 /// ### Parameters
 /// - `condition`: Boolean expression to check
-/// - `expr_str`: String representation of the condition expression
+/// - `context`: Additional context string to include in the message
 ///
 /// ### Example
 /// ```zig
-/// fn increment(x: *i32) void {
-///     const old_value = x.*;
-///     x.* += 1;
-///     ensureCtx(x.* == old_value + 1, "x.* == old_value + 1");
+/// fn processArray(arr: []i32) []i32 {
+///     // ... processing logic
+///     ensureCtx(arr.len > 0, "array processing postcondition");
+///     return arr;
 /// }
 /// ```
-pub inline fn ensureCtx(condition: bool, comptime expr_str: []const u8) void {
+pub inline fn ensureCtx(condition: bool, context: []const u8) void {
     if (builtin.mode == .ReleaseFast) return;
 
     if (!condition) {
-        const msg = std.fmt.comptimePrint("Postcondition failed: {s}", .{expr_str});
-        @panic(msg);
+        @panic("Postcondition failed: " ++ context);
     }
 }
 
-/// Defines how contracts handle errors and invariant checking.
-const ContractMode = enum {
-    /// Strict mode: invariants are checked even when the contract body returns an error.
-    /// If an error occurs, invariants are still validated before propagating the error.
-    strict,
-
-    /// Error-tolerant mode: allows partial state changes when errors occur.
-    /// Invariants are only checked if the contract body completes successfully.
-    error_tolerant,
-};
-
-/// Internal function implementing contract behavior for both strict and error-tolerant modes.
+/// Execute a function with design by contract semantics.
+///
+/// This function provides a structured way to implement contracts with:
+/// - Automatic invariant checking (if the object has an `invariant` method)
+/// - Captured pre-state for postconditions
+/// - Error handling that preserves invariants
 ///
 /// ### Parameters
-/// - `self`: Pointer to the object whose method is being contracted
-/// - `context`: Historical state or additional context for postcondition checking
-/// - `body`: Compile-time function containing the method implementation
-/// - `mode`: Contract enforcement mode (strict or error_tolerant)
+/// - `self`: Object instance (must be a pointer type for mutation)
+/// - `old_state`: Captured state before the operation
+/// - `operation`: Function to execute with signature `fn(old_state, self) ReturnType`
 ///
 /// ### Returns
-/// The return value of the body function
-inline fn contractWithMode(
-    self: anytype,
-    context: anytype,
-    comptime body: anytype,
-    comptime mode: ContractMode,
-) @TypeOf(body(context, self)) {
-    // In ReleaseFast mode, contracts are completely eliminated
+/// The return value of the `operation` function.
+///
+/// ### Example
+/// ```zig
+/// pub fn deposit(self: *BankAccount, amount: u64) !void {
+///     const old_state = .{ .balance = self.balance };
+///     return contract(self, old_state, struct {
+///         fn run(ctx: @TypeOf(old_state), account: *BankAccount) !void {
+///             require(.{amount > 0, "Deposit amount must be positive"});
+///             account.balance += amount;
+///             ensure(.{account.balance == ctx.balance + amount, "Balance should increase by deposit amount"});
+///         }
+///     }.run);
+/// }
+/// ```
+pub inline fn contract(self: anytype, old_state: anytype, operation: anytype) @typeInfo(@TypeOf(operation)).@"fn".return_type.? {
     if (builtin.mode == .ReleaseFast) {
-        return body(context, self);
+        return operation(old_state, self);
     }
 
-    const self_type = @TypeOf(self.*);
-    const has_invariant = @hasDecl(self_type, "invariant");
-
-    // Check invariant at method entry
-    if (has_invariant) {
+    // Check pre-invariant if available
+    if (@hasDecl(@TypeOf(self.*), "invariant")) {
         self.invariant();
     }
 
-    switch (mode) {
-        .strict => {
-            // Ensure invariant is checked at method exit, even on error
-            defer if (has_invariant) {
-                self.invariant();
-            };
-            return body(context, self);
-        },
-        .error_tolerant => {
-            // Only check invariant if method completes successfully
-            const result = body(context, self) catch |err| {
-                return err;
-            };
+    // Execute the operation
+    const result = operation(old_state, self);
 
-            if (has_invariant) {
-                self.invariant();
-            }
-
-            return result;
-        },
+    // Check post-invariant if available
+    if (@hasDecl(@TypeOf(self.*), "invariant")) {
+        self.invariant();
     }
+
+    return result;
 }
 
-/// Execute a method body with strict DbC enforcement.
+/// Execute a function with design by contract semantics and error tolerance.
 ///
-/// Automatically checks invariants before and after the method execution.
-/// If the method returns an error, invariants are still validated.
+/// Similar to `contract` but provides more sophisticated error handling.
+/// If an error occurs during the operation, the invariant is still checked
+/// to ensure the object remains in a valid state.
 ///
 /// ### Parameters
-/// - `self`: Pointer to the object whose method is being executed
-/// - `context`: Historical state or context for postcondition verification
-/// - `body`: Compile-time struct with a `run` function containing the method logic
+/// - `self`: Object instance (must be a pointer type for mutation)
+/// - `old_state`: Captured state before the operation
+/// - `operation`: Function to execute with signature `fn(old_state, self) ReturnType`
 ///
 /// ### Returns
-/// The return value of the body's `run` function
-///
-/// ### Invariants
-/// If the object type defines an `invariant(self: Self) void` function, it will be
-/// called before method entry and after method exit (including error cases).
+/// The return value of the `operation` function, or propagates any error.
 ///
 /// ### Example
 /// ```zig
-/// pub fn transfer(self: *Account, to: *Account, amount: u64) !void {
-///     const old_state = .{ .balance = self.balance, .to_balance = to.balance };
-///     return contract(self, old_state, struct {
-///         fn run(ctx: @TypeOf(old_state), from: *Account) !void {
-///             requiref(from.balance >= amount, "Insufficient funds: need {d}, have {d}",
-///                     .{amount, from.balance});
-///             from.balance -= amount;
-///             to.balance += amount;
-///             ensuref(from.balance + to.balance == ctx.balance + ctx.to_balance,
-///                   "Balance conservation failed: before={d}, after={d}",
-///                   .{ctx.balance + ctx.to_balance, from.balance + to.balance});
+/// pub fn complexOperation(self: *DataStructure, data: []const u8) !void {
+///     const old_state = .{ .size = self.size, .checksum = self.checksum };
+///     return contractWithErrorTolerance(self, old_state, struct {
+///         fn run(ctx: @TypeOf(old_state), ds: *DataStructure) !void {
+///             require(.{data.len > 0, "Data cannot be empty"});
+///
+///             // Complex operation that might fail
+///             try ds.processData(data);
+///
+///             ensure(.{ds.size >= ctx.size, "Size should not decrease"});
 ///         }
 ///     }.run);
 /// }
 /// ```
-pub inline fn contract(
-    self: anytype,
-    context: anytype,
-    comptime body: anytype,
-) @TypeOf(body(context, self)) {
-    return contractWithMode(self, context, body, .strict);
+pub inline fn contractWithErrorTolerance(self: anytype, old_state: anytype, operation: anytype) @typeInfo(@TypeOf(operation)).@"fn".return_type.? {
+    if (builtin.mode == .ReleaseFast) {
+        return operation(old_state, self);
+    }
+
+    // Check pre-invariant if available
+    if (@hasDecl(@TypeOf(self.*), "invariant")) {
+        self.invariant();
+    }
+
+    // Execute the operation with error handling
+    const result = operation(old_state, self) catch |err| {
+        // Even on error, ensure invariant is maintained
+        if (@hasDecl(@TypeOf(self.*), "invariant")) {
+            self.invariant();
+        }
+        return err;
+    };
+
+    // Check post-invariant if available
+    if (@hasDecl(@TypeOf(self.*), "invariant")) {
+        self.invariant();
+    }
+
+    return result;
 }
 
-/// Execute a method body with error-tolerant DbC enforcement.
-///
-/// Similar to `contract()` but allows partial state changes when errors occur.
-/// Invariants are only checked if the method completes successfully.
-///
-/// ### Parameters
-/// - `self`: Pointer to the object whose method is being executed
-/// - `context`: Historical state or context for postcondition verification
-/// - `body`: Compile-time struct with a `run` function containing the method logic
-///
-/// ### Returns
-/// The return value of the body's `run` function
-///
-/// ### Use Cases
-/// Use this when you need to allow partial state modifications during error conditions,
-/// or when invariant checking after errors would be inappropriate for your use case.
-///
-/// ### Example
-/// ```zig
-/// pub fn bulkUpdate(self: *Database, updates: []Update) !void {
-///     return contractWithErrorTolerance(self, null, struct {
-///         fn run(_: ?*anyopaque, db: *Database) !void {
-///             for (updates) |update| {
-///                 try db.applyUpdate(update); // May fail partway through
-///             }
-///         }
-///     }.run);
-/// }
-/// ```
-pub inline fn contractWithErrorTolerance(
-    self: anytype,
-    context: anytype,
-    comptime body: anytype,
-) @TypeOf(body(context, self)) {
-    return contractWithMode(self, context, body, .error_tolerant);
-}
+// Tests for `dbc` module
 
-// Test imports and examples
 const testing = std.testing;
 
 /// Example implementation demonstrating DbC principles with formatted messages.
@@ -650,4 +632,57 @@ test "reusable validators with enhanced error messages" {
     const longerThan5 = IsLongerThan{ .min_len = 5 };
     require(.{ longerThan5, "hello world", "string should be longer than 5" });
     ensure(.{ longerThan5, "a long string", "string should be longer than 5" });
+}
+
+test "requiref and ensuref with simple boolean conditions" {
+    if (builtin.mode == .ReleaseFast) return;
+
+    // These work because the values are known at compile time
+    const x: f64 = 3.14159;
+    const y: i32 = 42;
+
+    require(.{ x > 0.0, "x must be positive" });
+    require(.{ y >= 0, "y must be non-negative" });
+
+    // Simple formatted messages
+    const result = x * 2;
+    ensure(.{ result > x, "Result should be greater than input" });
+}
+
+test "context capture with complex expressions" {
+    if (builtin.mode == .ReleaseFast) return;
+
+    const a: f64 = 3.0;
+    const b: f64 = 4.0;
+    const c: f64 = 5.0;
+
+    requireCtx(a * a + b * b == c * c, "a * a + b * b == c * c");
+
+    const result = @sqrt(a * a + b * b);
+    ensureCtx(@abs(result - c) < 0.0001, "@abs(result - c) < 0.0001");
+}
+
+test "reusable validators with all API variants" {
+    if (builtin.mode == .ReleaseFast) return;
+
+    const IsInRange = struct {
+        min: i32,
+        max: i32,
+        fn run(self: @This(), value: i32) bool {
+            return value >= self.min and value <= self.max;
+        }
+    };
+
+    const range_validator = IsInRange{ .min = 10, .max = 50 };
+    const test_value: i32 = 25;
+
+    // Original API
+    require(.{ range_validator, test_value, "Value must be in range [10, 50]" });
+
+    // Context API
+    requireCtx(test_value % 5 == 0, "test_value % 5 == 0");
+
+    const result = test_value * 2;
+    ensure(.{ range_validator, result, "Result must be in range [10, 50]" });
+    ensureCtx(result == test_value * 2, "result == test_value * 2");
 }
