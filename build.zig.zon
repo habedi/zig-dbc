@@ -1,6 +1,6 @@
 .{
     .name = .zig_dbc,
-    .version = "0.1.0",
+    .version = "0.2.0",
     .fingerprint = 0x8e5de01b7c473456, // Changing this has security and trust implications.
     .minimum_zig_version = "0.14.1",
     .paths = .{
