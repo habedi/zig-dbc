@@ -31,11 +31,10 @@ and graphs) where correctness depends on specific conditions being met.
 ### Features
 
 - A simple API to define preconditions, postconditions, and invariants
-    - `require` and `ensure` functions can be used to check preconditions and postconditions
-    - `requiref` and `ensuref` functions can be used to check preconditions and postconditions with formatted error
-      messages
-    - `requireCtx` and `ensureCtx` functions can be used to check preconditions and postconditions with a context value
-    - `contract` and `contractWithErrorTolerance` functions can be used to check invariants
+    - `require` and `ensure` functions check preconditions and postconditions
+    - `requiref` and `ensuref` functions check preconditions and postconditions with formatted error messages
+    - `requireCtx` and `ensureCtx` functions check preconditions and postconditions with a context string
+    - `contract` and `contractWithErrorTolerance` functions check invariants
 - Checks are active in `Debug`, `ReleaseSafe`, and `ReleaseSmall` build modes to catch bugs
 - In `ReleaseFast` mode, all checks are removed at compile time to remove overhead
 
