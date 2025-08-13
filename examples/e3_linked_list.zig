@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const dbc = @import("dbc");
 
 const Allocator = std.mem.Allocator;
@@ -24,7 +25,7 @@ const SinglyLinkedList = struct {
             actual_count += 1;
             current = node.next;
         }
-        dbc.require(self.count == actual_count, "List count is inconsistent with node count.");
+        dbc.require(.{ self.count == actual_count, "List count is inconsistent with node count." });
     }
 
     pub fn init(allocator: Allocator) Self {
@@ -57,7 +58,7 @@ const SinglyLinkedList = struct {
                 s.count += 1;
 
                 // The postcondition verifies that the count was correctly incremented.
-                dbc.ensure(s.count == ctx.count + 1, "Push_front failed to decrement count.");
+                dbc.ensure(.{ s.count == ctx.count + 1, "Push_front failed to decrement count." });
             }
         }.run);
     }
@@ -68,7 +69,7 @@ const SinglyLinkedList = struct {
         const old = .{ .count = self.count };
         return dbc.contract(self, old, struct {
             fn run(ctx: @TypeOf(old), s: *Self) u32 {
-                dbc.require(s.head != null, "Cannot pop from an empty list.");
+                dbc.require(.{ s.head != null, "Cannot pop from an empty list." });
 
                 const head_node = s.head.?;
                 const value = head_node.data;
@@ -77,7 +78,7 @@ const SinglyLinkedList = struct {
                 s.count -= 1;
 
                 // The postcondition verifies that the count was correctly decremented.
-                dbc.ensure(s.count == ctx.count - 1, "Pop_front failed to decrement count.");
+                dbc.ensure(.{ s.count == ctx.count - 1, "Pop_front failed to decrement count." });
 
                 return value;
             }
@@ -86,7 +87,6 @@ const SinglyLinkedList = struct {
 };
 
 pub fn main() !void {
-    const builtin = @import("builtin");
     std.debug.print("Contracts are active in this build mode: {}\n", .{builtin.mode != .ReleaseFast});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
