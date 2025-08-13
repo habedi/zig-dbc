@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const dbc = @import("dbc");
 
 const BankAccount = struct {
@@ -99,7 +100,6 @@ const BankAccount = struct {
 };
 
 pub fn main() !void {
-    const builtin = @import("builtin");
     std.debug.print("Banking Systsem Example (contracts active: {})\n", .{builtin.mode != .ReleaseFast});
 
     var account1 = BankAccount.init(12345);

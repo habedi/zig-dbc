@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const dbc = @import("dbc");
 
 const Allocator = std.mem.Allocator;
@@ -86,7 +87,6 @@ const SinglyLinkedList = struct {
 };
 
 pub fn main() !void {
-    const builtin = @import("builtin");
     std.debug.print("Contracts are active in this build mode: {}\n", .{builtin.mode != .ReleaseFast});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

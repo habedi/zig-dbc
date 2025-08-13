@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const dbc = @import("dbc");
 
 const Allocator = std.mem.Allocator;
@@ -78,7 +79,6 @@ const FileParser = struct {
 };
 
 pub fn main() !void {
-    const builtin = @import("builtin");
     std.debug.print("Contracts are active in this build mode: {}\n", .{builtin.mode != .ReleaseFast});
 
     const temp_dir_path = "temp";

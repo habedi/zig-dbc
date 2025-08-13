@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const dbc = @import("dbc");
 
 pub fn BoundedQueue(comptime T: type, comptime capacity: usize) type {
@@ -54,7 +55,6 @@ pub fn BoundedQueue(comptime T: type, comptime capacity: usize) type {
 }
 
 pub fn main() !void {
-    const builtin = @import("builtin");
     const MyQueue = BoundedQueue(u32, 3);
     var q = MyQueue{};
 
