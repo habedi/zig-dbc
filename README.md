@@ -79,10 +79,10 @@ pub fn build(b: *std.Build) void {
     });
 
     // 1. Get the dependency object from the builder
-    const zig_dbc_dep = b.dependency("dbc", .{});
+    const zig_dbc_dep = b.dependency("zig_dbc", .{});
 
-    // 2. Get Zig-DbC's top-level module
-    const zig_dbc_module = zig_dbc_dep.module("dbc");
+    // 2. Create a module for zig-dbc
+    const zig_dbc_module = b.createModule(.{ .root_source_file = zig_dbc_dep.path("src/lib.zig") });
 
     // 3. Add the module to your executable so you can @import("dbc")
     exe.root_module.addImport("dbc", zig_dbc_module);
