@@ -54,7 +54,7 @@ You can add Zig-DbC to your project and start using it by following the steps be
 Run the following command in the root directory of your project to download Zig-DbC:
 
 ```sh
-zig fetch --save=dbc "https://github.com/habedi/zig-dbc/archive/<branch_or_tag>.tar.gz"
+zig fetch --save=zig_dbc "https://github.com/habedi/zig-dbc/archive/<branch_or_tag>.tar.gz"
 ```
 
 Replace `<branch_or_tag>` with the desired branch or tag, like `main` (for the development version) or `v0.2.0`
