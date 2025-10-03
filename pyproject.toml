@@ -1,12 +1,7 @@
 [project]
 name = "zig-dbc"
 version = "0.1.0"
-description = "Python environment for Zig-DbC"
-readme = "README.md"
-license = { text = "MIT" }
-authors = [
-    { name = "Hassan Abedi", email = "hassan.abedi.t@gmail.com" }
-]
+description = "Python environment for the Zig-DbC project"
 
 requires-python = ">=3.10,<4.0"
 dependencies = [
